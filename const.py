@@ -45,38 +45,22 @@ DATA_PATHS = {
     "モブ": f"{dataFolder}/mobs.yml"
 }
 
-
-
 class MiniMessageTag:
-    MINI_MESSAGE_COLOR = [
+    COLORS = [
         "black", "dark_blue", "dark_green", "dark_aqua",
-        "dark_red", "dark_purple", "gold", "gray",
-        "dark_gray", "blue", "green", "aqua",
+        "dark_red", "dark_purple", "gold", "gray", "grey",
+        "dark_gray", "dark_grey", "blue", "green", "aqua",
         "red", "light_purple", "yellow", "white"
     ]
-
-    BOLD = "bold"
-    ITALIC = "italic"
-    UNDERLINED = "underlined"
-    STRIKETHROUGH = "strikethrough"
-    OBFUSCATED = "obfuscated"
-    RESET = "reset"
-
-    # ここでセットを作る。
-    # 判定時に "<red>" と比較するなら、あらかじめカッコ付きのセットにしておくと楽です。
-    ALL_TAG = set()
-
-# クラス定義のすぐ下で中身を構成する（確実な方法）
-MiniMessageTag.ALL_TAG = set(f"<{c}>" for c in MiniMessageTag.MINI_MESSAGE_COLOR) | {
-    f"<{MiniMessageTag.BOLD}>", 
-    f"<{MiniMessageTag.ITALIC}>", 
-    f"<{MiniMessageTag.UNDERLINED}>", 
-    f"<{MiniMessageTag.STRIKETHROUGH}>", 
-    f"<{MiniMessageTag.OBFUSCATED}>", 
-    f"<{MiniMessageTag.RESET}>"
-}
-
-
+    
+    # 装飾とエイリアスのマッピング
+    DECORATIONS = {
+        "bold": "bold", "b": "bold",
+        "italic": "italic", "em": "italic", "i": "italic",
+        "underlined": "underlined", "u": "underlined",
+        "strikethrough": "strikethrough", "st": "strikethrough",
+        "obfuscated": "obfuscated", "obf": "obfuscated"
+    }
 
 class ItemData:
     display = "display_name"

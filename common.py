@@ -1,4 +1,4 @@
-import os, re, const
+import os, re
 import const
 
 minimessage_tag = const.MiniMessageTag
@@ -26,51 +26,76 @@ def get_settings_path():
 """サーバープロファイルのフルパスを返す"""
 def get_server_profiles():
     return os.path.join(get_base_data_folder(), 'server_profiles.json')
-    
-def minimessage_to_dict(raw: str) -> list[dict[str, list[str]]]:
-    """
-    MiniMessage形式の文字列を解析し、テキストとそのテキストに適用されるタグのリストを返す。
-    """
-    if not raw:
-        return []
 
-    # 1. 正規表現で分割
-    # (?<!\\) は直前に \ がないことを確認（エスケープ対応）
-    # <[^>]+> は最短一致でタグを抽出
-    pattern = r'((?<!\\)<[^>]+>)'
+"""タグが正常か判別する関数"""
+def is_valid_tag(tag_name):
+    # 名前付きカラー、16進数カラー(#RRGGBB)、装飾、影(shadow:...)を判定
+    if tag_name in const.MiniMessageTag.COLORS: return True
+    if tag_name in const.MiniMessageTag.DECORATIONS: return True
+    if re.match(r'^#[0-9a-fA-F]{6}$', tag_name): return True
+    if tag_name.startswith("shadow:"): return True
+    return False
+
+"""MiniMessageを[{'text': '文字列', 'tags': ['タグ']}]に変換する関数"""
+def parse_strict_minimessage(raw: str) -> list[dict]:
+    # <reset> は禁止なので事前に除去、または無効化
+    if not raw: return []
+
+    # タグの分割パターン (shadow: や #hex を含む)
+    pattern = r'((?<!\\)</?[^>]+>)'
     parts = re.split(pattern, raw)
     
     result = []
-    current_tags = [] # 現在有効なタグのスタック
+    active_stack = [] # 開いているタグを順番に保持
 
     for part in parts:
-        if not part:
-            continue
-            
-        # タグとしての条件判定
-        # 1. < で始まり > で終わる
-        # 2. かつ DUMMY_TAGS に含まれる
-        # 3. かつ 直前に \ がない（re.splitの時点で分離済みだが念のため）
-        if part.startswith("<") and part.endswith(">") and part in minimessage_tag.ALL_TAG:
-            # タグとして処理
-            # ※Adventure仕様に寄せるなら、ここで色タグなら上書き、boldなら追加等のロジックが必要
-            # 今回は単純にリストに溜めていく形にします
-            if part not in current_tags:
-                current_tags.append(part)
-        else:
-            # 文字として処理（エスケープされた \<red> 等もここに来る）
-            # エスケープ記号自体は表示不要なので除去
-            clean_text = part.replace(r"\<", "<")
-            
-            # リストに追加
-            # current_tags[:] でコピーを渡さないと、後でタグが変わった時に全部書き換わるので注意
-            result.append({clean_text: current_tags[:]})
+        if not part: continue
+
+        # タグの判定
+        if part.startswith("<") and part.endswith(">"):
+            is_closing = part.startswith("</")
+            # タグの中身を取り出す (例: <shadow:red> -> shadow:red)
+            tag_content = part.strip("<>/")
+
+            # 厳格モード: reset は無視（処理しない）
+            if tag_content == "reset":
+                continue
+
+            if is_valid_tag(tag_content):
+                if is_closing:
+                    # 厳格モード: 最後に開いたタグと一致する場合のみ閉じる
+                    if active_stack and active_stack[-1] == tag_content:
+                        active_stack.pop()
+                    # ※一致しない場合は閉じない（何もしない）
+                else:
+                    # 開始タグ: スタックに追加
+                    active_stack.append(tag_content)
+                continue
+
+        # テキストデータの作成
+        clean_text = part.replace(r"\<", "<")
+        
+        # スタックにあるタグを <tag> 形式で保持
+        formatted_tags = [f"<{t}>" for t in active_stack]
+        
+        result.append({
+            "text": clean_text,
+            "tags": formatted_tags
+        })
 
     return result
 
-# def dict_to_minimessage(raw_data: list) -> str:
-#     for data in raw_data:
-#         
+"""[{'text': '文字列', 'tags': ['タグ']}]をMiniMessageに変換する関数"""
+def list_to_strict_minimessage(parsed_list: list[dict]) -> str:
+    output = ""
+    for item in parsed_list:
+        text = item["text"].replace("<", r"\<")
+        tags_open = "".join(item["tags"])
+        # 閉じタグはスタックの逆順で生成
+        tags_close = "".join([f"</{t.strip('<>')}>" for t in reversed(item["tags"])])
+        
+        # 実際には、連続する同じタグなら結合する処理が必要ですが、
+        # 最も安全なのは「各テキストごとにタグで挟む」形式です。
+        output += f"{tags_open}{text}{tags_close}"
+    return output
 
-raw = minimessage_to_dict(r"通常\\<red>文字<red>赤色<bold>太字の赤</bold>")
-print(raw)
