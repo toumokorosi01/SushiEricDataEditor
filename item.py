@@ -61,7 +61,7 @@ class ItemView(ctk.CTkFrame):
 
         for item_id in self.all_data.keys():
             btn = ctk.CTkButton(
-                self.sidebar_frame, text=item_id, 
+                self.sidebar_frame, text=item_id, text_color=const.text_color,
                 fg_color=const.bottom_side_color, hover_color=const.bottom_side_hover_color,
                 command=lambda i=item_id: self.select_data(i)
             )
@@ -108,23 +108,26 @@ class ItemView(ctk.CTkFrame):
             fg_color="transparent",
             border_color=const.line_color,
             border_width=1,
-            width=200, 
-            height=100,
+            width=300, 
+            height=400,
             corner_radius=0
         )
+        display_name_base_frame.grid_propagate(False)
+        display_name_base_frame.pack_propagate(False)
         display_name_base_frame.grid(row=0, column=0, padx=10, pady=10)
+
+        ctk.CTkLabel(display_name_base_frame, text="表示名", font=const.UI_FONT).pack(padx=5, pady=2, anchor="w")
 
         # 2. 内側のスクロールフレーム（線なし・背景透過）
         self.display_name_frame = ctk.CTkScrollableFrame(
             master=display_name_base_frame,    # 親をbase_frameにする
             fg_color="transparent",
             border_width=0,                    # 線なし
-            orientation="horizontal",
             corner_radius=0
         )
         # 外枠いっぱいに広げる（padx, padyを1〜2にするとバーが枠に重ならない）
-        self.display_name_frame.pack(expand=True, fill="both", padx=1, pady=1)
-        
+        self.display_name_frame.pack(expand=True, fill="both", padx=(1, 1), pady=(2, 1))
+
         name_var = ctk.StringVar(value=item_dict.get("display_name", ""))
 
         def update_name(*args):
@@ -133,8 +136,6 @@ class ItemView(ctk.CTkFrame):
 
         name_var.trace_add("write", update_name)
 
-        ctk.CTkLabel(self.display_name_frame, text="表示名:", font=const.UI_FONT).grid(row=0, column=0, pady=5, padx=10)
-
         self.display_name_entry = ctk.CTkEntry(
             self.display_name_frame, 
             placeholder_text="表示名を入力",
@@ -142,7 +143,7 @@ class ItemView(ctk.CTkFrame):
             width=200,
             font=const.UI_FONT
         )
-        self.display_name_entry.grid(row=0, column=1, pady=5, padx=(0, 10))
+        self.display_name_entry.grid(row=0, column=0, pady=5, padx=(10, 10))
 
         logger.info(f"選択中: {item_id}")
     

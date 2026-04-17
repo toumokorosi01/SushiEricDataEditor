@@ -93,7 +93,7 @@ class App(ctk.CTk):
         for i, text in enumerate(button_texts):
             btn = ctk.CTkButton(
                 self.top_frame, text=text, fg_color=const.top_tab_fg_color, 
-                corner_radius=0, hover_color=const.top_tab_hover_color,
+                corner_radius=0, hover_color=const.top_tab_hover_color, text_color=const.text_color,
                 command=lambda t=text: self.select_tab(t)
             )
             btn.grid(row=0, column=i, padx=(1, 0), sticky="ns")

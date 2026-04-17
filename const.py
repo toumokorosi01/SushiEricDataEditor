@@ -32,6 +32,7 @@ line_color = ("#e8e8e8", "#2c2d2e")
 bottom_main_color = top_tab_hover_color
 bottom_side_color = top_tab_fg_color
 bottom_side_hover_color = line_color
+text_color = ("#000000", "#ffffff")
 
 dataFolder = "/plugins/SushiEricServerPlugin21"
 item_stats_path = f"{dataFolder}/item/stats.yml"
@@ -43,6 +44,39 @@ DATA_PATHS = {
     "木": f"{dataFolder}/block/stat/wood.yml",
     "モブ": f"{dataFolder}/mobs.yml"
 }
+
+
+
+class MiniMessageTag:
+    MINI_MESSAGE_COLOR = [
+        "black", "dark_blue", "dark_green", "dark_aqua",
+        "dark_red", "dark_purple", "gold", "gray",
+        "dark_gray", "blue", "green", "aqua",
+        "red", "light_purple", "yellow", "white"
+    ]
+
+    BOLD = "bold"
+    ITALIC = "italic"
+    UNDERLINED = "underlined"
+    STRIKETHROUGH = "strikethrough"
+    OBFUSCATED = "obfuscated"
+    RESET = "reset"
+
+    # ここでセットを作る。
+    # 判定時に "<red>" と比較するなら、あらかじめカッコ付きのセットにしておくと楽です。
+    ALL_TAG = set()
+
+# クラス定義のすぐ下で中身を構成する（確実な方法）
+MiniMessageTag.ALL_TAG = set(f"<{c}>" for c in MiniMessageTag.MINI_MESSAGE_COLOR) | {
+    f"<{MiniMessageTag.BOLD}>", 
+    f"<{MiniMessageTag.ITALIC}>", 
+    f"<{MiniMessageTag.UNDERLINED}>", 
+    f"<{MiniMessageTag.STRIKETHROUGH}>", 
+    f"<{MiniMessageTag.OBFUSCATED}>", 
+    f"<{MiniMessageTag.RESET}>"
+}
+
+
 
 class ItemData:
     display = "display_name"
