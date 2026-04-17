@@ -76,32 +76,47 @@ class ItemView(ctk.CTkFrame):
                 id = next(iter(self.all_data))
                 self.select_data(id)
 
+    def update_sidebar_text(self):
+        """サイドバーのボタンテキスト（●の有無）を一括更新する"""
+        for widget in self.sidebar_frame.winfo_children():
+            if isinstance(widget, ctk.CTkButton):
+                raw_text = widget.cget("text")
+                # IDを特定（頭2文字を削るか判定）
+                clean_id = raw_text[2:] if raw_text.startswith("● ") else raw_text
+                
+                if clean_id == "+ 新規作成":
+                    continue
+
+                # データ変更検知
+                is_changed = self.all_data.get(clean_id) != self.old_all_data.get(clean_id)
+                prefix = "● " if is_changed else ""
+                
+                # テキストだけ更新
+                widget.configure(text=f"{prefix}{clean_id}")
+
     """特定のIDを選択状態にする"""
     def select_data(self, item_id: str):
         for widget in self.main_frame.winfo_children():
             widget.destroy()
         
-        # すべてのボタンの中から対象を探して色とテキストを変える
+        # まずテキスト（●）を最新の状態にする
+        self.update_sidebar_text()
+        
+        # ボタンの「色」だけを更新する
         for widget in self.sidebar_frame.winfo_children():
             if isinstance(widget, ctk.CTkButton):
                 raw_text = widget.cget("text")
-                # 既存の "● " を取り除いて純粋なキー名（ID）にする
                 clean_id = raw_text[2:] if raw_text.startswith("● ") else raw_text
 
                 if clean_id == "+ 新規作成":
                     continue
                 
-                # --- 変更検知とテキスト更新 ---
-                # データが変更されているか確認して、接頭辞を決定
-                prefix = "● " if self.all_data.get(clean_id) != self.old_all_data.get(clean_id) else ""
-                new_display_text = f"{prefix}{clean_id}"
-                
-                # IDが一致したボタンを hover_color に、それ以外を normal_color に
+                # 色の変更判定
                 if clean_id == item_id:
-                    widget.configure(text=new_display_text, fg_color=const.bottom_side_hover_color)
+                    widget.configure(fg_color=const.bottom_side_hover_color)
                     self.selected_button = widget
                 else:
-                    widget.configure(text=new_display_text, fg_color=const.bottom_side_color)
+                    widget.configure(fg_color=const.bottom_side_color)
         
         # 最終選択の辞書更新
         self.last_selection_ref[self.category] = item_id
@@ -141,6 +156,7 @@ class ItemView(ctk.CTkFrame):
         def update_name(*args):
             item_dict["display_name"] = name_var.get()
             self.update_callback()
+            self.update_sidebar_text()
 
         name_var.trace_add("write", update_name)
 
