@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+venv/
+.env
+settings.json
+server_profiles.json
