@@ -1,0 +1,2 @@
+# SushiEricDataEditor
+SushiEricServerPlugin21で使用するyamlデータファイルを編集するソフト。
