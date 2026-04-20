@@ -1,5 +1,5 @@
 import platform
-from typing import Literal, TypedDict, List, Union, Optional
+from typing import Literal, TypedDict, List, Union, Optional, Annotated
 
 # OSの判定
 CURRENT_OS = platform.system()
@@ -46,56 +46,47 @@ DATA_PATHS = {
     "モブ": f"{dataFolder}/mobs.yml"
 }
 
-color_picker_optiones = ["color", "gradient", "transition"]
-
-CategoryType = Literal["decoration", "color", "special_color", "shadow"]
-
 # カラーデコレーションの構造
 class ColorDeco(TypedDict):
-    type: str  # "color", "rainbow", "gradient", "transition"
-    # 単色なら "#ffffff", グラデーションなら ["red", "blue"]
-    value: Union[str, List[str]]
+    type: MiniMessageTag.ColorTagType
+    value: Union[
+        MiniMessageTag.CustomColor, 
+        List[MiniMessageTag.CustomColor]
+    ] # 単色なら "#ffffff", グラデーションなら ["red", "blue"]
     args: List[str]  # 引数（!5 や phase数値など）
 
 # タグ全体の構造
 class TagData(TypedDict):
-    decoration: List[str]      # ["<bold>", "<italic>"]
+    decoration: List[MiniMessageTag.DecorationTag]      # ["<bold>", "<italic>"]
     color: ColorDeco           # カラー情報
-    shadow: Optional[str]      # "black" or None
+    shadow: Optional[MiniMessageTag.CustomColor]      # 色 or None
 
 class MiniMessageItem(TypedDict):
     text: str
     tags: TagData
 
 class MiniMessageTag:
-    TYPE_DECORATION: CategoryType = "decoration"
-    TYPE_COLOR: CategoryType = "color"
-    TYPE_SPECIAL: CategoryType = "special_color"
-    TYPE_SHADOW: CategoryType = "shadow"
+    ColorTagType = Literal["color", "rainbow", "gradient", "transition", "shadow"]
+    DecorationTag = Literal["bold", "italic", "underlined", "strikethrough", "obfuscated"]
 
-    RAINBOW = "rainbow"
-    GRADIENT = "gradient"
-    TRANSITION = "transition"
-    SHADOW = "shadow"
+    ColorName = Literal[
+        "black", "dark_blue", "dark_green", "dark_aqua", "dark_red", 
+        "dark_purple", "gold", "gray", "grey", "dark_gray", "dark_grey", 
+        "blue", "green", "aqua", "red", "light_purple", "yellow", "white"
+    ]
+    HexCode = Annotated[str, "pattern: ^#[0-9a-fA-F]{6}$"]
+    CustomColor = Union[ColorName, HexCode, str]
 
-    SPECIAL_COLOR_TAGS = [RAINBOW, GRADIENT, TRANSITION]
-
-    # 対応色リスト
+    DEFAULT_COLOR: CustomColor = "white"
+    DEFAULT_SHADOW_COLOR: CustomColor = "black"
+    DEFAULT_HEX: HexCode = "#FFFFFF"
     COLORS = [
         "black", "dark_blue", "dark_green", "dark_aqua", "dark_red", 
         "dark_purple", "gold", "gray", "grey", "dark_gray", "dark_grey", 
         "blue", "green", "aqua", "red", "light_purple", "yellow", "white"
     ]
 
-    DECORATIONS = {
-        "bold": "bold", "b": "bold",
-        "italic": "italic", "em": "italic", "i": "italic",
-        "underlined": "underlined", "u": "underlined",
-        "strikethrough": "strikethrough", "st": "strikethrough",
-        "obfuscated": "obfuscated", "obf": "obfuscated"
-    }
 
 class ItemData:
     display = "display_name"
     lore = "lore"
-

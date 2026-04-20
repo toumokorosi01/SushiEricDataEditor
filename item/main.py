@@ -62,7 +62,7 @@ class ItemView(ctk.CTkFrame):
         for item_id in self.all_data.keys():
             btn = ctk.CTkButton(
                 self.sidebar_frame, text=item_id, text_color=const.text_color,
-                fg_color=const.bottom_side_color, hover_color=const.bottom_side_hover_color,
+                fg_color=const.bottom_side_color, hover_color=const.bottom_side_hover_color, corner_radius=0,
                 command=lambda i=item_id: self.select_data(i)
             )
             btn.pack(fill="x")
