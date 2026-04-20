@@ -4,6 +4,7 @@ import os
 import json
 from tkinter import filedialog, messagebox
 import common
+import traceback
 
 CONFIG_FILE = common.get_server_profiles()
 
@@ -248,6 +249,10 @@ class Launcher(ctk.CTkToplevel):
             self.destroy()
 
         except Exception as e:
+            error_detail = traceback.format_exc()
+            print("--- Detailed Error Log ---")
+            print(error_detail)
+
             messagebox.showerror("接続エラー", f"接続失敗:\n{e}", parent=self)
 
 if __name__ == "__main__":

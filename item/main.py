@@ -1,5 +1,5 @@
 import customtkinter as ctk
-import const
+import const, common
 import logging
 
 ITEM_KEYS = const.ItemData()
@@ -122,52 +122,22 @@ class ItemView(ctk.CTkFrame):
         self.last_selection_ref[self.category] = item_id
 
         # --- メイン画面表示 ---
+        # アイテムIDのデータ
         item_dict = self.all_data.get(item_id, {})
 
-        # 表示名
-        # 外側の枠線用フレーム
-        display_name_base_frame = ctk.CTkFrame(
+        # --- 表示名 ---
+        from .display_name import DisplayName
+        
+        self.display_name_frame = DisplayName(
             master=self.main_frame,
-            fg_color="transparent",
-            border_color=const.line_color,
-            border_width=1,
-            width=300, 
-            height=400,
-            corner_radius=0
+            item_dict=item_dict,
+            update_callback=self.update_callback,
+            update_sidebar_callback=self.update_sidebar_text, # 関数を渡す
+            width=400, 
+            height=400
         )
-        display_name_base_frame.grid_propagate(False)
-        display_name_base_frame.pack_propagate(False)
-        display_name_base_frame.grid(row=0, column=0, padx=10, pady=10)
+        self.display_name_frame.grid(row=0, column=0, padx=10, pady=10)
 
-        ctk.CTkLabel(display_name_base_frame, text="表示名", font=const.UI_FONT).pack(padx=5, pady=2, anchor="w")
-
-        # 2. 内側のスクロールフレーム（線なし・背景透過）
-        self.display_name_frame = ctk.CTkScrollableFrame(
-            master=display_name_base_frame,    # 親をbase_frameにする
-            fg_color="transparent",
-            border_width=0,                    # 線なし
-            corner_radius=0
-        )
-        # 外枠いっぱいに広げる（padx, padyを1〜2にするとバーが枠に重ならない）
-        self.display_name_frame.pack(expand=True, fill="both", padx=(1, 1), pady=(2, 1))
-
-        name_var = ctk.StringVar(value=item_dict.get("display_name", ""))
-
-        def update_name(*args):
-            item_dict["display_name"] = name_var.get()
-            self.update_callback()
-            self.update_sidebar_text()
-
-        name_var.trace_add("write", update_name)
-
-        self.display_name_entry = ctk.CTkEntry(
-            self.display_name_frame, 
-            placeholder_text="表示名を入力",
-            textvariable=name_var,
-            width=200,
-            font=const.UI_FONT
-        )
-        self.display_name_entry.grid(row=0, column=0, pady=5, padx=(10, 10))
 
         logger.info(f"選択中: {item_id}")
     

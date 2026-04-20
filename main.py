@@ -1,7 +1,7 @@
 import customtkinter as ctk
 from launcher import Launcher
 from tkinter import messagebox
-from item import ItemView
+from item.main import ItemView
 import const, common
 import yaml, copy, sys, socket, logging, os, json, platform
 
@@ -167,6 +167,7 @@ class App(ctk.CTk):
     def update_tab(self):
         self.refresh_save_btn()
         self.refresh_tab_headers()
+        self.current_view.update_sidebar_text()
 
     """全てのタブボタンのテキストを更新（変更があれば * をつける）"""
     def refresh_tab_headers(self):
