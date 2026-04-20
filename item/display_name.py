@@ -36,15 +36,12 @@ class DisplayName(ctk.CTkFrame):
         self.setup_widgets()
         self.is_initializing = False # 初期化完了
 
-    """親の辞書を書き換える"""
-    def on_update(self, re_render=True):
+    """親の辞書を書き換えてサイドバーとヘッダーを更新する"""
+    def on_update(self):
         self.item_dict[const.ItemData.display] = common.list_to_strict_minimessage(self.name_data)
 
         if getattr(self, "is_initializing", False):
             return
-
-        if re_render:
-            self.refresh_frame()
 
         self.update_callback()
         self.update_sidebar_callback()
@@ -61,15 +58,14 @@ class DisplayName(ctk.CTkFrame):
         # データを読み込んで配置
         self.refresh_frame()
         
-    """フレームの再構築"""
-    def refresh_frame(self):
+    """フレームの構築"""
+    def building_frame(self):
         """テキストの変更"""
         def change_text(index: int, text: str):
             self.name_data[index]["text"] = text
-            self.on_update(re_render=False)
 
-        """boolのタグの変更"""
-        def change_bool_tag(index: int, tag: str, stats: bool):
+        """decorationタグの変更"""
+        def change_deco_tag(index: int, tag: str, stats: bool):
             target = f"<{tag}>"
             if stats:
                 if target not in self.name_data[index]["tags"]["decoration"]:
@@ -78,8 +74,6 @@ class DisplayName(ctk.CTkFrame):
                 # 存在するときだけ消す（エラー防止）
                 if target in self.name_data[index]["tags"]["decoration"]:
                     self.name_data[index]["tags"]["decoration"].remove(target)
-            
-            self.on_update(re_render=False)
 
         """影の切り替え"""
         def change_shadow(index: int, is_shadow: bool):
@@ -87,25 +81,52 @@ class DisplayName(ctk.CTkFrame):
 
             # 一旦全部剥がして順序をリセット
             self.shadow_option.pack_forget()
-            self.shadow_btn.pack_forget()
 
             if is_shadow:
                 self.shadow_option.pack(pady=(3, 0))
-                color = tag_data.get("shadow")
-
-                # 色の判定とUIの同期
-                if color in const.MiniMessageTag.COLORS:
-                    self.shadow_option.set(color)
-                elif common.is_color(color):
-                    self.shadow_option.set("hexcode")
-                    self.shadow_btn.pack(pady=(3, 0))
-                else:
-                    self.shadow_option.set("black")
-                    tag_data["shadow"] = "black"
+                self.shadow_option.set("black")
+                tag_data["shadow"] = "black"
             else:
                 tag_data["shadow"] = None
 
-            self.on_update(re_render=False)
+        """オプションメニューの切り替えで呼び出す"""
+        def change_color(
+                mode: str, 
+                tag_data: const.TagData, 
+                color: str, 
+                index: int = 0
+        ):
+            is_not_hex = color in const.MiniMessageTag.COLORS
+            color_data = tag_data["color"]
+
+
+
+            match mode:
+                case "shadow":
+                    if is_not_hex:
+                        tag_data["shadow"] = color
+                    else:
+                        tag_data["shadow"] = common.get_new_color()
+                case "color":
+                    if is_not_hex:
+                        tag_data["color"]["value"] = color
+                    else:
+                        tag_data["color"]["value"] = common.get_new_color()
+                case "gradient" | "transition":
+                    if is_not_hex:
+                        tag_data["color"]["value"][index] = color
+                    else:
+                        tag_data["color"]["value"][index] = common.get_new_color()
+
+
+
+            type = color_data["type"]
+            value = color_data["value"]
+            args = color_data["args"]
+
+            match mode:
+                case "color":
+
 
         """オプションメニューで呼び出す関数"""
         def shadow_frame_edit(color: str, index: int):
@@ -254,7 +275,7 @@ class DisplayName(ctk.CTkFrame):
                     btn_frame,
                     text=display,
                     variable=switch_var,
-                    command=lambda idx=section_idx, t=tag, v=switch_var: change_bool_tag(idx, t, v.get())
+                    command=lambda idx=section_idx, t=tag, v=switch_var: change_deco_tag(idx, t, v.get())
                 )
                 switch.grid(row=row, column=0, sticky="w", padx=10)
 
