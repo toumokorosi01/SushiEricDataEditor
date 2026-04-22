@@ -1,6 +1,10 @@
 import customtkinter as ctk
 import const, common
 import logging
+from data_content import ItemDataContent as IDC, DataType
+from typing import Callable
+from paramiko import SFTPClient, SSHClient
+from launcher import Profile
 
 ITEM_KEYS = const.ItemData()
 
@@ -10,14 +14,14 @@ logger = logging.getLogger(__name__)
 class ItemView(ctk.CTkFrame):
     def __init__(
             self, 
-            master, 
-            sftp, 
-            profile, 
-            data, 
-            old_data, 
-            update_callback, 
-            category,
-            last_selection_ref
+            master: ctk.CTkFrame, 
+            sftp: SFTPClient, 
+            profile: Profile, 
+            data: dict[str, IDC], 
+            old_data: dict[str, IDC], 
+            update_callback: Callable[[], None], 
+            category: DataType,
+            last_selection_ref: dict[DataType, str]
     ):
         super().__init__(master, fg_color="transparent")
         self.sftp = sftp # 接続済みインスタンス
@@ -179,7 +183,7 @@ class ItemView(ctk.CTkFrame):
                 return
 
             # データの追加と更新
-            self.all_data[new_id] = {}
+            self.all_data[new_id] = const.EMPTY_ITEM_DATA
             dialog.destroy() # 窓を閉じる
             self.refresh_data() # 画面を再構築してボタンを増やす
             self.update_callback()
@@ -195,35 +199,10 @@ class ItemView(ctk.CTkFrame):
         # Enterキーでも追加できるようにする
         entry.bind("<Return>", lambda e: add_id())
 
-    def data_verification(self, id: str, key: str):
-        return_data = []
-
-        if id not in self.all_data:
-            warn = f"{id} が辞書にありません"
-            logger.error(warn)
-            return_data.append((False, warn))
-
-            return return_data
-        
-        data = self.all_data[id]
-
-        # 表示名
-        display_name = data.get(ITEM_KEYS.display)
-        if not display_name:
-            warn = "表示名が空です。"
-            logger.warning(warn)
-            return_data.append((False, warn))
-
-
-
-
-        
-        lore_list = data.get(ITEM_KEYS.lore, [])
-
-        if not return_data:
-            return [(True, "")]
-        else:
-            return return_data
+    """データが正常かどうか"""
+    # 後で作る
+    def data_verification(self, id: str):
+        pass
         
         
 

@@ -4,9 +4,28 @@ import os
 import json
 from tkinter import filedialog, messagebox
 import common
-import traceback
+import traceback, logging
+from __future__ import annotations
+from typing import TYPE_CHECKING, Callable, TypedDict, List
+
+if TYPE_CHECKING:
+    from main import App
 
 CONFIG_FILE = common.get_server_profiles()
+
+logger = logging.getLogger(__name__)
+
+class Profile(TypedDict):
+    name: str
+    host: str
+    port: str
+    user: str
+    path: str
+    key: str
+
+class ConfigData(TypedDict):
+    list: List[Profile]
+    last_selected: str
 
 """サーバー情報を追加・編集するためのサブウィンドウ"""
 class AddServerWindow(ctk.CTkToplevel):
@@ -90,10 +109,10 @@ class AddServerWindow(ctk.CTkToplevel):
             messagebox.showwarning("入力エラー", "すべての項目を入力してください。", parent=self)
 
 class Launcher(ctk.CTkToplevel):
-    def __init__(self, parent, on_connect_callback):
+    def __init__(self, parent: App, on_connect_callback: Callable[[paramiko.SSHClient, paramiko.SFTPClient, Profile], None]):
         super().__init__(parent)
 
-        self.add_window = None
+        self.add_window: AddServerWindow = None
 
         self.parent = parent
         self.on_connect_callback = on_connect_callback # 成功時に実行する関数
@@ -120,20 +139,26 @@ class Launcher(ctk.CTkToplevel):
 
         self.refresh_list()
 
-    def load_profiles(self):
+    """設定ファイルを読み込み、ConfigData型として返す"""
+    def load_profiles(self)-> ConfigData:
         if os.path.exists(CONFIG_FILE):
             try:
                 with open(CONFIG_FILE, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                    return data if isinstance(data, dict) else {"list": data, "last_selected": ""}
+                    if isinstance(data, dict):
+                        return data
+                    else:
+                        return {"list": data, "last_selected": ""}
             except: pass
         return {"list": [], "last_selected": ""}
 
+    """設定をファイルを保存"""
     def save_profiles(self):
-        data = {"list": self.profiles, "last_selected": self.selected_profile.get()}
+        data: ConfigData = {"list": self.profiles, "last_selected": self.selected_profile.get()}
         with open(CONFIG_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=4, ensure_ascii=False)
 
+    """プロファイルの一覧更新"""
     def refresh_list(self):
         for widget in self.scroll_frame.winfo_children():
             widget.destroy()
@@ -155,13 +180,15 @@ class Launcher(ctk.CTkToplevel):
             )
             edit_btn_row.pack(side="right", padx=5)
 
+    """追加ウィンドウを開く"""
     def open_add_window(self):
         if self.add_window is None or not self.add_window.winfo_exists():
             self.add_window = AddServerWindow(self)
         else:
             self.add_window.focus()
 
-    def open_edit_window_by_index(self, index):
+    """編集ウィンドウを開く"""
+    def open_edit_window_by_index(self, index: int):
         profile_data = self.profiles[index]
         if self.add_window is None or not self.add_window.winfo_exists():
             # edit_index を渡してウィンドウを作成
@@ -191,7 +218,8 @@ class Launcher(ctk.CTkToplevel):
         else:
             self.add_window.focus()
 
-    def add_profile(self, data, window):
+    """プロファイルの追加"""
+    def add_profile(self, data: Profile, window: AddServerWindow):
         if any(p['name'] == data['name'] for p in self.profiles):
             messagebox.showwarning("重複エラー", f"'{data['name']}' は既に存在します。", parent=window)
             return False
@@ -202,7 +230,8 @@ class Launcher(ctk.CTkToplevel):
         self.refresh_list()
         return True
 
-    def update_profile(self, index, new_data, window):
+    """プロファイルの更新"""
+    def update_profile(self, index: int, new_data: Profile, window: AddServerWindow):
         # 名前重複チェック（自分自身以外の要素と比較）
         for i, p in enumerate(self.profiles):
             if i != index and p['name'] == new_data['name']:
@@ -216,7 +245,8 @@ class Launcher(ctk.CTkToplevel):
         self.refresh_list()
         return True
 
-    def delete_profile(self, index, window):
+    """プロファイル削除"""
+    def delete_profile(self, index: int, window: AddServerWindow):
         if messagebox.askyesno("削除確認", "このプロファイルを削除してもよろしいですか？", parent=window):
             self.profiles.pop(index)
             new_selection = self.profiles[0]["name"] if self.profiles else ""
@@ -225,6 +255,7 @@ class Launcher(ctk.CTkToplevel):
             self.refresh_list()
             window.destroy()
 
+    """サーバーへ接続"""
     def connect_server(self):
         target = self.selected_profile.get()
         if not target:
@@ -234,6 +265,8 @@ class Launcher(ctk.CTkToplevel):
         profile = next(p for p in self.profiles if p['name'] == target)
         client = paramiko.SSHClient()
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+        logger.info("接続開始...")
 
         try:
             client.connect(
@@ -250,8 +283,8 @@ class Launcher(ctk.CTkToplevel):
 
         except Exception as e:
             error_detail = traceback.format_exc()
-            print("--- Detailed Error Log ---")
-            print(error_detail)
+            logger.error("--- Detailed Error Log ---")
+            logger.error(error_detail)
 
             messagebox.showerror("接続エラー", f"接続失敗:\n{e}", parent=self)
 

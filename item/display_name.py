@@ -1,6 +1,5 @@
 import customtkinter as ctk
 import const, common
-from typing import Callable
 
 DECORATIONS = {
     "太字": "bold",
@@ -9,8 +8,6 @@ DECORATIONS = {
     "取り消し線": "strikethrough",
     "難読化": "obfuscated"
 }
-
-
 
 class DisplayName(ctk.CTkFrame):
     def __init__(self, master, item_dict, update_callback, update_sidebar_callback, **kwargs):

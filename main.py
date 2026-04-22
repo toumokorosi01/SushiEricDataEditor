@@ -1,9 +1,13 @@
 import customtkinter as ctk
-from launcher import Launcher
+from launcher import Launcher, Profile
 from tkinter import messagebox
 from item.main import ItemView
 import const, common
+import item.lore as il
 import yaml, copy, sys, socket, logging, os, json, platform
+from paramiko import SFTPClient, SSHClient
+import data_content as dc
+from typing import cast, Dict, List, get_args, Any
 
 """対応OSかチェック"""
 def check_os_compatibility():
@@ -27,7 +31,8 @@ def check_os_compatibility():
 # 起動時に実行
 check_os_compatibility()
 
-button_texts = list(const.DATA_PATHS.keys())
+button_texts = [info["display_name"] for info in const.DATA_CONFIG.values()]
+data_names = list(const.DATA_CONFIG.keys())
 
 # ログの基本設定
 logging.basicConfig(
@@ -42,11 +47,21 @@ class App(ctk.CTk):
         super().__init__()
 
         # 最後に選択したデータの空辞書
-        self.last_selected_data = {cat: "" for cat in const.DATA_PATHS.keys()}
+        self.last_selected_data: dict[dc.DataType, str] = {cat: "" for cat in data_names}
 
         # データの集中管理
-        self.all_data = {text: {} for text in button_texts}
-        self.old_all_data = {text: {} for text in button_texts}
+        self.all_data: dc.AllData = {
+            "item": {},
+            "crop": {},
+            "mob": {},
+            "ore": {}
+        }
+        self.old_all_data: dc.AllData = {
+            "item": {},
+            "crop": {},
+            "mob": {},
+            "ore": {}
+        }
         
         # ウィンドウ終了時のプロトコル
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
@@ -64,13 +79,14 @@ class App(ctk.CTk):
         self.launcher = Launcher(self, self.on_connected)
 
     """Launcherで接続成功時の処理"""
-    def on_connected(self, client, sftp, profile):
+    def on_connected(self, client: SSHClient, sftp: SFTPClient, profile: Profile):
         logger.info(f"接続成功: {profile['name']} - {sftp.getcwd()}")
 
         self.ssh_client = client
         self.sftp = sftp
         self.current_profile = profile
         
+        # データ読み込み
         self.load_all_categories()
         self.load_all_last_selections()
 
@@ -89,12 +105,13 @@ class App(ctk.CTk):
         self.top_frame.grid_rowconfigure(0, weight=1)
         self.top_frame.grid_columnconfigure(5, weight=1)
 
-        self.buttons = {}
+        self.buttons: dict[str, ctk.CTkButton] = {}
         for i, text in enumerate(button_texts):
+            data_name = data_names[i]
             btn = ctk.CTkButton(
                 self.top_frame, text=text, fg_color=const.top_tab_fg_color, 
                 corner_radius=0, hover_color=const.top_tab_hover_color, text_color=const.text_color,
-                command=lambda t=text: self.select_tab(t)
+                command=lambda dn=data_name: self.select_tab(dn)
             )
             btn.grid(row=0, column=i, padx=(1, 0), sticky="ns")
             self.buttons[text] = btn
@@ -118,7 +135,7 @@ class App(ctk.CTk):
 
     """タブの選択"""
     def select_tab(self, text):
-        if text not in const.DATA_PATHS.keys():
+        if text not in button_texts:
             logger.error("不正なデータ名です")
             return
 
@@ -132,6 +149,8 @@ class App(ctk.CTk):
         # 2. ボタンの見た目更新などはそのまま
         self.refresh_save_btn()
         for btn_text, btn in self.buttons.items():
+            # btn_text: 表示名
+            # btn: CTkButton
             btn.configure(
                 fg_color=const.top_tab_hover_color if btn_text == text else const.top_tab_fg_color,
                 border_width=1 if btn_text == text else 0
@@ -140,6 +159,7 @@ class App(ctk.CTk):
         logger.info(f"{text} タブを開きます。")
 
         # 3. インスタンス作成
+        # ウィジェット全消し
         for widget in self.bottom_frame.winfo_children():
             widget.destroy()
 
@@ -149,10 +169,10 @@ class App(ctk.CTk):
                     master=self.bottom_frame,
                     sftp=self.sftp,
                     profile=self.current_profile,
-                    data=self.all_data[text],
-                    old_data=self.old_all_data[text],
+                    data=self.all_data["item"],
+                    old_data=self.old_all_data["item"],
                     update_callback=self.update_tab,
-                    category=text,
+                    category="item",
                     last_selection_ref=self.last_selected_data
                 )
             # case "鉱石": ... 他のカテゴリも同様に
@@ -172,7 +192,17 @@ class App(ctk.CTk):
     """全てのタブボタンのテキストを更新（変更があれば * をつける）"""
     def refresh_tab_headers(self):
         for text, btn in self.buttons.items():
-            if self.all_data[text] != self.old_all_data[text]:
+            # text: 表示名
+            # btn: CTkButton
+            
+            # 表示名からデータ名を取得
+            category = None
+            for cat_id, info in const.DATA_CONFIG.items():
+                if info["display_name"] == text:
+                    category = cat_id
+                    break
+
+            if self.all_data[category] != self.old_all_data[category]:
                 btn.configure(text=f"● {text}") # 目印をつける
             else:
                 btn.configure(text=text)
@@ -200,7 +230,7 @@ class App(ctk.CTk):
         success_count = 0
 
         # const.DATA_PATHS のキー（アイテム、鉱石など）を順番に処理
-        for category in const.DATA_PATHS.keys():
+        for category in const.DATA_CONFIG.keys():
             self.load_category_data(category)
             success_count += 1
             
@@ -210,7 +240,7 @@ class App(ctk.CTk):
     指定されたカテゴリのデータを読み込む。
     失敗・不在時は空の状態で開始し、all_dataを更新する。
     """
-    def load_category_data(self, category):
+    def load_category_data(self, category: dc.DataType):
 
         # カテゴリごとの「箱（辞書）」がまだなければ作成
         if category not in self.all_data:
@@ -219,20 +249,61 @@ class App(ctk.CTk):
             self.old_all_data[category] = {}
 
         base_path = self.current_profile['path'].rstrip('/')
-        target_path = const.DATA_PATHS.get(category)
+        target_path = const.DATA_CONFIG[category]["path"]
         target_file = base_path + target_path
-
-        loaded_dict = {}
         
         try:
             with self.sftp.open(target_file, 'r') as f:
                 content = f.read().decode('utf-8')
-                loaded_dict = yaml.safe_load(content)
-                if loaded_dict is None:
-                    loaded_dict = {}
-                
-                item_count = len(loaded_dict)
-                logger.info(f"[{category}] {item_count} 件のデータを読み込みました。")
+                raw_yaml = yaml.safe_load(content)
+
+                # 返すデータ
+                result_data = {}
+
+                match category:
+                    case "item":
+                        # ファイルが辞書形式でない場合は空辞書
+                        loaded_dict: Dict[str, Any] = raw_yaml if isinstance(raw_yaml, dict) else {}
+                        
+                        for item_id, raw_item in loaded_dict.items():
+                            if not isinstance(item_id, str) or not item_id.strip():
+                                continue
+                            if not isinstance(raw_item, dict):
+                                continue
+                            
+                            # 雛形を毎回新しく作成
+                            structured_item= const.EMPTY_ITEM_DATA
+
+                            # --- display 階層 ---
+                            raw_display = raw_item.get("display")
+                            if isinstance(raw_display, dict):
+                                structured_item["display"]["name"] = str(raw_display.get("name", ""))
+                                
+                                raw_lore = raw_display.get("lore")
+                                # 初期化
+                                validated_lore: List[List[const.MiniMessageItem]] = []
+                                
+                                if isinstance(raw_lore, list):
+                                    for raw_row in raw_lore:
+                                        # MiniMessageをデータ構造へパース
+                                        if isinstance(raw_row, str) and raw_row:
+                                            parsed_line = il.parse_strict_minimessage(raw_row)
+                                            if parsed_line:
+                                                validated_lore.append(parsed_line)
+
+                                # 1行でも有効なデータがあれば上書き
+                                if validated_lore:
+                                    structured_item["display"]["lore"] = validated_lore
+
+                            # --- rarity 階層 ---
+                            raw_rarity = raw_item.get("rarity")
+                            if raw_rarity in get_args(dc.Rarity):
+                                structured_item["rarity"] = cast(dc.Rarity, raw_rarity)
+
+                            result_data[item_id] = structured_item
+                    
+                item_count = len(result_data)
+                logger.info(f"[{category}] {item_count} 件の有効なデータを読み込みました。")
 
         except (FileNotFoundError, IOError):
             logger.warning(f"[{category}] ファイルが存在しないため空のデータを作成しました。")
@@ -241,7 +312,7 @@ class App(ctk.CTk):
 
         # 親クラスの管理辞書を更新
         self.all_data[category].clear()
-        self.all_data[category].update(loaded_dict)
+        self.all_data[category].update(result_data)
         self.old_all_data[category].clear()
         self.old_all_data[category].update(copy.deepcopy(self.all_data[category]))
 
@@ -249,9 +320,8 @@ class App(ctk.CTk):
     def save_all_categories(self, event=None):
         logger.info("全データの保存を開始します...")
         success_count = 0
-        target_categories = const.DATA_PATHS.keys()
 
-        for category in target_categories:
+        for category in data_names:
             # 変更があるかチェック（効率化のため）
             if self.all_data[category] != self.old_all_data[category]:
                 if self.save_category_data(category):
@@ -278,10 +348,36 @@ class App(ctk.CTk):
         self._makedirs_sftp(target_dir)
 
         try:
-            # データの件数をログに出す
-            item_count = len(self.all_data[category])
-            yaml_content = yaml.dump(self.all_data[category], allow_unicode=True, sort_keys=False)
+            # 保存用にデータをデシリアライズ（構造化データ -> 文字列リスト）
+            export_data = {}
             
+            if category == "item":
+                for item_id, item_content in self.all_data[category].items():
+                    # 構造をコピーしつつ、loreを文字列に戻す
+                    exported_item: dc.ItemDataContent = {
+                        "display": {
+                            "name": item_content["display"]["name"],
+                            "lore": []
+                        },
+                        "rarity": item_content["rarity"]
+                    }
+                    
+                    # List[List[MiniMessageItem]] -> List[str] への復元
+                    for line_objects in item_content["display"]["lore"]:
+                        line_mini_message = il.list_to_strict_minimessage(line_objects)
+                        if line_mini_message:
+                            exported_item["display"]["lore"].append(line_mini_message)
+                    
+                    export_data[item_id] = exported_item
+            else:
+                # item 以外はそのまま（暫定）
+                export_data = self.all_data[category]
+
+            # YAML文字列に変換
+            item_count = len(export_data)
+            yaml_content = yaml.dump(export_data, allow_unicode=True, sort_keys=False)
+            
+            # SFTP書き込み
             with self.sftp.open(target_file, 'w') as f:
                 f.write(yaml_content)
             
@@ -319,7 +415,6 @@ class App(ctk.CTk):
     """全カテゴリの最終選択IDをロードして、self.last_selected_dataを直接更新する。"""
     def load_all_last_selections(self):
         path = common.get_settings_path()
-        default_results = {cat: "" for cat in const.DATA_PATHS.keys()}
 
         loaded_data = {}
 
@@ -341,7 +436,7 @@ class App(ctk.CTk):
 
         # 箱（self.last_selected_data）の中身を更新
         self.last_selected_data.clear()
-        for cat in default_results.keys():
+        for cat in data_names:
             self.last_selected_data[cat] = loaded_data.get(cat, "")
 
     """self.last_selected_data の中身をそのまま保存する"""

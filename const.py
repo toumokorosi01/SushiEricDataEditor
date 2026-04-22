@@ -1,5 +1,6 @@
 import platform
-from typing import Literal, TypedDict, List, Union, Optional, Annotated
+from typing import Dict, TypedDict
+import data_content as dc
 
 # OSの判定
 CURRENT_OS = platform.system()
@@ -38,55 +39,36 @@ text_color = ("#000000", "#ffffff")
 dataFolder = "/plugins/SushiEricServerPlugin21"
 item_stats_path = f"{dataFolder}/item/stats.yml"
 
-DATA_PATHS = {
-    "アイテム": f"{dataFolder}/item/stats.yml",
-    "鉱石": f"{dataFolder}/block/stats/ore",
-    "作物": f"{dataFolder}/block/stat/wood.yml",
-    "木": f"{dataFolder}/block/stat/wood.yml",
-    "モブ": f"{dataFolder}/mobs.yml"
+# 2. 1つ分のデータ構造を定義
+class DataInfo(TypedDict):
+    path: str
+    display_name: str
+
+# 3. まとめて定義
+# こうすることで、DATA_CONFIG["item"]["path"] のようにアクセスでき、補完も効きます
+DATA_CONFIG: Dict[dc.DataType, DataInfo] = {
+    "item": {
+        "path": f"{dataFolder}/item/stats.yml",
+        "display_name": "アイテム"
+    },
+    "crop": {
+        "path": f"{dataFolder}/block/stat/wood.yml",
+        "display_name": "作物"
+    },
+    "ore": {
+        "path": f"{dataFolder}/block/stats/ore",
+        "display_name": "鉱石"
+    },
+    "mob": {
+        "path": f"{dataFolder}/mobs.yml",
+        "display_name": "モブ"
+    }
 }
 
-# カラーデコレーションの構造
-class ColorDeco(TypedDict):
-    type: MiniMessageTag.ColorTagType
-    value: Union[
-        MiniMessageTag.CustomColor, 
-        List[MiniMessageTag.CustomColor]
-    ] # 単色なら "#ffffff", グラデーションなら ["red", "blue"]
-    args: List[str]  # 引数（!5 や phase数値など）
-
-# タグ全体の構造
-class TagData(TypedDict):
-    decoration: List[MiniMessageTag.DecorationTag]      # ["<bold>", "<italic>"]
-    color: ColorDeco           # カラー情報
-    shadow: Optional[MiniMessageTag.CustomColor]      # 色 or None
-
-class MiniMessageItem(TypedDict):
-    text: str
-    tags: TagData
-
-class MiniMessageTag:
-    ColorTagType = Literal["color", "rainbow", "gradient", "transition", "shadow"]
-    DecorationTag = Literal["bold", "italic", "underlined", "strikethrough", "obfuscated"]
-
-    ColorName = Literal[
-        "black", "dark_blue", "dark_green", "dark_aqua", "dark_red", 
-        "dark_purple", "gold", "gray", "grey", "dark_gray", "dark_grey", 
-        "blue", "green", "aqua", "red", "light_purple", "yellow", "white"
-    ]
-    HexCode = Annotated[str, "pattern: ^#[0-9a-fA-F]{6}$"]
-    CustomColor = Union[ColorName, HexCode, str]
-
-    DEFAULT_COLOR: CustomColor = "white"
-    DEFAULT_SHADOW_COLOR: CustomColor = "black"
-    DEFAULT_HEX: HexCode = "#FFFFFF"
-    COLORS = [
-        "black", "dark_blue", "dark_green", "dark_aqua", "dark_red", 
-        "dark_purple", "gold", "gray", "grey", "dark_gray", "dark_grey", 
-        "blue", "green", "aqua", "red", "light_purple", "yellow", "white"
-    ]
-
-
-class ItemData:
-    display = "display_name"
-    lore = "lore"
+EMPTY_ITEM_DATA: dc.ItemDataContent = {
+    "display": {
+        "name": "",
+        "lore": []
+    },
+    "rarity": "COMMON"
+}
