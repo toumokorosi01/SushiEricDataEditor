@@ -5,8 +5,7 @@ from data_content import ItemDataContent as IDC, DataType
 from typing import Callable
 from paramiko import SFTPClient, SSHClient
 from launcher import Profile
-
-ITEM_KEYS = const.ItemData()
+import copy
 
 # レコーダー作成
 logger = logging.getLogger(__name__)
@@ -134,7 +133,7 @@ class ItemView(ctk.CTkFrame):
         
         self.display_name_frame = DisplayName(
             master=self.main_frame,
-            item_dict=item_dict,
+            item_data=item_dict,
             update_callback=self.update_callback,
             update_sidebar_callback=self.update_sidebar_text, # 関数を渡す
             width=400, 
@@ -183,7 +182,7 @@ class ItemView(ctk.CTkFrame):
                 return
 
             # データの追加と更新
-            self.all_data[new_id] = const.EMPTY_ITEM_DATA
+            self.all_data[new_id] = copy.deepcopy(const.EMPTY_ITEM_DATA)
             dialog.destroy() # 窓を閉じる
             self.refresh_data() # 画面を再構築してボタンを増やす
             self.update_callback()

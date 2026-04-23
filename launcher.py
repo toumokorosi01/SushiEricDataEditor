@@ -1,3 +1,4 @@
+from __future__ import annotations
 import paramiko
 import customtkinter as ctk
 import os
@@ -5,7 +6,6 @@ import json
 from tkinter import filedialog, messagebox
 import common
 import traceback, logging
-from __future__ import annotations
 from typing import TYPE_CHECKING, Callable, TypedDict, List
 
 if TYPE_CHECKING:

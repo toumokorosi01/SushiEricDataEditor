@@ -252,13 +252,13 @@ class App(ctk.CTk):
         target_path = const.DATA_CONFIG[category]["path"]
         target_file = base_path + target_path
         
+        # 返すデータ
+        result_data = {}
+
         try:
             with self.sftp.open(target_file, 'r') as f:
                 content = f.read().decode('utf-8')
                 raw_yaml = yaml.safe_load(content)
-
-                # 返すデータ
-                result_data = {}
 
                 match category:
                     case "item":
@@ -272,7 +272,7 @@ class App(ctk.CTk):
                                 continue
                             
                             # 雛形を毎回新しく作成
-                            structured_item= const.EMPTY_ITEM_DATA
+                            structured_item= copy.deepcopy(const.EMPTY_ITEM_DATA)
 
                             # --- display 階層 ---
                             raw_display = raw_item.get("display")
@@ -336,7 +336,7 @@ class App(ctk.CTk):
     """指定された1つのカテゴリを保存する"""
     def save_category_data(self, category):
         base_path = self.current_profile['path'].rstrip('/')
-        target_path = const.DATA_PATHS.get(category)
+        target_path = const.DATA_CONFIG[category]["path"]
         if not target_path:
             logger.error(f"[{category}] パスが定義されていないため保存できません")
             return False

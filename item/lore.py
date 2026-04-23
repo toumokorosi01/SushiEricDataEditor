@@ -357,7 +357,7 @@ class Lore(ctk.CTkFrame):
         self.update_callback()
         self.update_sidebar_callback()
 
-    """表示名のベースのフレーム"""
+    """ベースのフレーム"""
     def setup_widgets(self):
         label = ctk.CTkLabel(self, text="説明文", font=const.UI_FONT)
         label.pack(pady=3) 
@@ -374,17 +374,21 @@ class Lore(ctk.CTkFrame):
         """データの新規作成"""
         def data_create(line_idx: int, section_idx: int):
             # 空のデータを作る(まだ作っただけで入れてない)
-            data = common.create_empty_minimessage_data()
+            new_data = create_empty_minimessage_data()
 
             # 指定のindexに挿入
-            self.name_data.insert(index, data)
+            lore_data = self.item_data["display"]["lore"]
+            target_line = lore_data[line_idx]
+            target_line.insert(section_idx, new_data)
+
+            target_line_frames = line_frame_list[line_idx]
 
             # 追加したい位置以下のフレームを下にずらす
-            for i in range(len(section_frame_list) - 1, index - 1, -1):
-                section_frame_list[i].grid(row=i + 1, pady=5, padx=10)
+            for i in range(len(target_line_frames) - 1, section_idx - 1, -1):
+                target_line_frames[i].grid(row=i + 1, pady=5, padx=10)
             
             # フレームを作成、表示
-            new_frame = create_edit_frame(data)
+            new_frame = create_section_frame(new_data)
             section_frame_list.insert(index, new_frame)
 
             new_frame.grid(row=index, pady=5, padx=10)
@@ -443,7 +447,20 @@ class Lore(ctk.CTkFrame):
         # section_create, delete, moveとline_create, delete, moveを作る
 
 
+        """ラインフレームを作成"""
+        def create_line_frame() -> ctk.CTkFrame:
+            parent = ctk.CTkFrame(self.scroll_frame)
 
+            inner_scroll = ctk.CTkScrollableFrame(parent, orientation="horizontal", height=150)
+            inner_scroll.pack(fill="x", padx=20, pady=20)
+
+            parent.scroll_area = inner_scroll
+
+            return parent
+        
+        new_section = create_line_frame()
+        new_section.pack(fill="x")
+        ctk.CTkButton(new_section.scroll_area, text="外から追加したボタン").pack(side="left")
 
         """編集フレームを作成"""
         def create_section_frame(data: dc.MiniMessageItem, line_frame: ctk.CTkFrame, line_idx: int, section_idx: int):
@@ -550,3 +567,10 @@ class Lore(ctk.CTkFrame):
             # 表示
             frame.grid(row=section_idx, pady=5, padx=10)
             
+class LoreLine(ctk.CTkFrame):
+    def __init__(self, master: ctk.CTkScrollableFrame, line_data: List[dc.MiniMessageItem], line_idx: int, update_call_back: Callable[[], None], **kwargs):
+        super().__init__(master, fg_color="transparent", **kwargs)
+
+        self.line_data = line_data
+        self.line_idx = line_idx
+        self.on_update = update_call_back

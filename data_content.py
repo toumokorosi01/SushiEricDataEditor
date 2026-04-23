@@ -2,12 +2,6 @@ from typing import TYPE_CHECKING, Dict, Literal, TypedDict, List, Union, Optiona
 
 DataType = Literal["item", "crop", "ore", "mob"]
 
-class AllData(TypedDict):
-    item: Dict[str, ItemDataContent]
-    crop: Dict[str, CropDataContent]
-    ore: Dict[str, OreDataContent]
-    mob: Dict[str, MobsDataContetnt]
-
 # ========== アイテム ==========
 
 class MiniMessageTag:
@@ -71,3 +65,10 @@ class OreDataContent(TypedDict):
 # ========== モブ ==========
 class MobsDataContetnt(TypedDict):
     drop: List[str]
+
+# ========== 全データ ==========
+class AllData(TypedDict):
+    item: Dict[str, ItemDataContent]
+    crop: Dict[str, CropDataContent]
+    ore: Dict[str, OreDataContent]
+    mob: Dict[str, MobsDataContetnt]
