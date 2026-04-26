@@ -7,7 +7,6 @@ from paramiko import SFTPClient, SSHClient
 from launcher import Profile
 import copy
 
-# レコーダー作成
 logger = logging.getLogger(__name__)
 
 class ItemView(ctk.CTkFrame):
@@ -135,11 +134,20 @@ class ItemView(ctk.CTkFrame):
             master=self.main_frame,
             item_data=item_dict,
             update_callback=self.update_callback,
-            update_sidebar_callback=self.update_sidebar_text, # 関数を渡す
-            width=400, 
-            height=400
+            update_sidebar_callback=self.update_sidebar_text
         )
         self.display_name_frame.grid(row=0, column=0, padx=10, pady=10)
+
+        # --- 説明文 ---
+        from .lore import Lore
+
+        self.lore_frame = Lore(
+            master=self.main_frame,
+            item_data=item_dict,
+            update_callback=self.update_callback,
+            update_sidebar_callback=self.update_sidebar_text
+        )
+        self.lore_frame.grid(row=1, column=0, padx=10, pady=10)
 
 
         logger.info(f"選択中: {item_id}")

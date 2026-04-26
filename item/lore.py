@@ -199,7 +199,7 @@ def list_to_strict_minimessage(parsed_list: List[dc.MiniMessageItem]) -> str:
         output += f"{tags_open}{text}{close_tags}"
     return output
 
-"""データ新規作成"""
+"""空のMiniMesageItemを作成"""
 def create_empty_minimessage_data(text: str = "") -> dc.MiniMessageItem:
     return {
         "text": text,
@@ -241,7 +241,7 @@ class EditMiniMessage:
 
     """
     decorationタグの変更
-    :param tag: const.const.MiniMessageTag.DecorationTag
+    :param tag: dc.MiniMessageTag.DecorationTag
     :param stats: Trueで有効化、Falseで無効化
     """
     def change_deco_tag(self, tag: dc.MiniMessageTag.DecorationTag, stats: bool):
@@ -266,7 +266,7 @@ class EditMiniMessage:
         tag_data = self.data["tags"]
 
         # 一旦全部剥がして順序をリセット
-        menu.grid_forget()
+        menu.pack_forget()
 
         if is_shadow:
             menu.pack(pady=(3, 0))
@@ -284,8 +284,8 @@ class EditMiniMessage:
     ・gradient
     ・transition
     の色指定で使用。
-    :param mode: 変更したい色のconst.const.MiniMessageTag.ColorTagType。
-    :param color: 変更後の色。'hexcode'かconst.const.MiniMessageTag.ColorNameで指定。
+    :param mode: 変更したい色のdc.MiniMessageTag.ColorTagType。
+    :param color: 変更後の色。'hexcode'かdc.MiniMessageTag.ColorNameで指定。
     :param index: 色がリストで保存される形式の場合、リストのインデックスを指定。デフォルト値は0。
     """
     def change_color(self, mode: dc.MiniMessageTag.ColorTagType, color: str, index: int = 0):
@@ -319,6 +319,7 @@ DECORATIONS = {
     "取り消し線": "strikethrough",
     "難読化": "obfuscated"
 }
+
 
 """loreのsectionのフレームの作成"""
 class LoreSection(ctk.CTkFrame):
