@@ -435,22 +435,127 @@ class LoreSection(ctk.CTkFrame):
         ctk.CTkButton(frame_3, text="前に追加", fg_color="green", command=lambda: self.create_callback(self, -1), width=80).pack(side="left", expand=True, padx=2, pady=3)
         ctk.CTkButton(frame_3, text="後ろに追加", fg_color="green", command=lambda: self.create_callback(self, 1), width=80).pack(side="left", expand=True, padx=2, pady=3)
 
-            return parent_frame
 
-        line_frame_list: list[list[ctk.CTkFrame]] = []
 
-        for section_idx, data in enumerate(self.name_data):
-            # 作成
-            frame = create_edit_frame(data)
-            # リストに追加
-            section_frame_list.append(frame)
-            # 表示
-            frame.grid(row=section_idx, pady=5, padx=10)
-            
+"""LoreのLineのフレーム作成"""
 class LoreLine(ctk.CTkFrame):
-    def __init__(self, master: ctk.CTkScrollableFrame, line_data: List[dc.MiniMessageItem], line_idx: int, update_call_back: Callable[[], None], **kwargs):
-        super().__init__(master, fg_color="transparent", **kwargs)
+    def __init__(
+            self, 
+            master: ctk.CTkScrollableFrame, 
+            line_data: List[dc.MiniMessageItem], 
+            on_update: Callable[[], None], 
+            create_callback: Callable[[ctk.CTkFrame, int], None], 
+            delete_callback: Callable[[ctk.CTkFrame], None], 
+            move_callback: Callable[[ctk.CTkFrame, int], None], 
+            **kwargs
+    ):
+        # master は親である Lore クラスのインスタンス（またはその中のコンテナ）になります
+        super().__init__(master, fg_color="transparent", border_width=1, border_color="cyan", corner_radius=0, **kwargs, width=570, height=220)
+        
+        self.grid_propagate(False)
+        self.pack_propagate(False)
 
-        self.line_data = line_data
-        self.line_idx = line_idx
-        self.on_update = update_call_back
+        # List[MiniMessageItem]
+        self.line_data = line_data  
+        # サイドバーとヘッダーのの表示更新関数
+        self.on_update = on_update
+        # このラインのフレームのリスト
+        self.frame_list: List[ctk.CTkFrame] = []
+
+        self.create_callback = create_callback
+        self.delete_callback = delete_callback
+        self.move_callback = move_callback
+
+        self.setup_widgets()
+
+    """
+    セクションの作成
+    :parm direction: -1(上)/1(下)
+    """
+    def section_create(self, section_instance: ctk.CTkFrame, direction: int):
+        # リアルタイムで「自分がいま何番目か」をリストから検索する
+        base_idx = self.frame_list.index(section_instance)
+        insert_idx = base_idx + direction
+        insert_idx = max(0, min(insert_idx, len(self.frame_list)))
+        
+        # 空のデータを作る(まだ作っただけで入れてない)
+        new_data = create_empty_minimessage_data()
+        # 指定のindexに挿入
+        self.line_data.insert(insert_idx, new_data)
+
+        new_frame = LoreSection(self.scrollable_frame, new_data, self.on_update, self.section_create, self.section_delete, self.section_move)
+        self.frame_list.insert(insert_idx, new_frame)
+
+        # 再配置
+        for i, frame in enumerate(self.frame_list):
+            frame.grid(row=0, column=i, pady=2, padx=3)
+
+        self.on_update()
+
+    """セクションの削除"""
+    def section_delete(self, section_instance: ctk.CTkFrame):
+        if len(self.line_data) <= 1:
+            return
+
+        idx = self.frame_list.index(section_instance)
+
+        self.line_data.pop(idx)
+        target_frame = self.frame_list.pop(idx)
+        target_frame.destroy()
+
+        for i, frame in enumerate(self.frame_list):
+            frame.grid(row=0, column=i, pady=2, padx=3)
+
+        self.on_update()
+
+    """
+    セクションの移動
+    :parm direction: -1(上)/1(下)
+    """
+    def section_move(self, section_instance: ctk.CTkFrame, direction: int):
+        if direction == 0:
+            return
+        old_idx = self.frame_list.index(section_instance)
+        new_idx = old_idx + direction
+        new_idx = max(0, min(new_idx, len(self.frame_list)))
+
+        if 0 <= new_idx < len(self.frame_list):
+            # 要素を入れ替える(データ)
+            self.line_data[old_idx], self.line_data[new_idx] = \
+                self.line_data[new_idx], self.line_data[old_idx]
+            # 要素を入れ替える(フレーム)
+            self.frame_list[old_idx], self.frame_list[new_idx] = \
+                self.frame_list[new_idx], self.frame_list[old_idx]
+            
+            # grid再設定
+            for i, frame in enumerate(self.frame_list):
+                frame.grid(row=0, column=i, pady=2, padx=3)
+
+            self.on_update()
+
+    def setup_widgets(self):
+        # ここでラベルやボタンなどを配置
+        self.scrollable_frame = ctk.CTkScrollableFrame(
+            self, 
+            orientation="horizontal",
+            fg_color="transparent",
+            corner_radius=0
+        )
+        self.grid_columnconfigure(0, weight=1)
+
+        self.scrollable_frame.grid(row=0, column=0, sticky="nsew", padx=(1, 0), pady=1)
+
+        control_frame = ctk.CTkFrame(self, width=100, fg_color="transparent", corner_radius=0)
+        control_frame.grid(row=0, column=1, sticky="nsew", padx=(0, 1), pady=1)
+        
+        ctk.CTkButton(control_frame, text="▲", command=lambda: self.move_callback(self, -1), width=90).pack(expand=True, padx=2, pady=3)
+        ctk.CTkButton(control_frame, text="▼", command=lambda: self.move_callback(self, 1), width=90).pack(expand=True, padx=2, pady=3)
+        ctk.CTkButton(control_frame, text="前に追加", fg_color="green", command=lambda: self.create_callback(self, -1), width=90).pack(expand=True, padx=2, pady=3)
+        ctk.CTkButton(control_frame, text="後ろに追加", fg_color="green", command=lambda: self.create_callback(self, 1), width=90).pack(expand=True, padx=2, pady=3)
+
+        for i, item in enumerate(self.line_data):
+            section = LoreSection(self.scrollable_frame, item, self.on_update, self.section_create, self.section_delete, self.section_move)
+            self.frame_list.append(section)
+            section.grid(row=0, column=i, pady=2, padx=3)
+            
+
