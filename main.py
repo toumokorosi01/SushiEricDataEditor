@@ -8,6 +8,8 @@ import yaml, copy, sys, socket, logging, os, json, platform
 from paramiko import SFTPClient, SSHClient
 import data_content as dc
 from typing import cast, Dict, List, get_args, Any
+import traceback
+import colorlog
 
 """対応OSかチェック"""
 def check_os_compatibility():
@@ -35,12 +37,24 @@ button_texts = [info["display_name"] for info in const.DATA_CONFIG.values()]
 data_names = list(const.DATA_CONFIG.keys())
 
 # ログの基本設定
-logging.basicConfig(
-    level=logging.DEBUG, # 開発時はDEBUG、完成後はINFOにする
-    format='%(asctime)s [%(levelname)s] %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
-logger = logging.getLogger(__name__)
+logger = logging.getLogger() 
+
+handler = colorlog.StreamHandler()
+handler.setFormatter(colorlog.ColoredFormatter(
+    '%(log_color)s[%(asctime)s] %(levelname)s:%(name)s:%(message)s',
+
+    datefmt='%H:%M:%S',
+
+    log_colors={
+        'DEBUG':    'cyan',
+        'INFO':     'green',
+        'WARNING':  'yellow',
+        'ERROR':    'red',
+        'CRITICAL': 'red,bg_white',
+    }
+))
+logger.addHandler(handler)
+logger.setLevel(logging.DEBUG)
 
 class App(ctk.CTk):
     def __init__(self):
@@ -309,6 +323,8 @@ class App(ctk.CTk):
             logger.warning(f"[{category}] ファイルが存在しないため空のデータを作成しました。")
         except Exception as e:
             logger.warning(f"[{category}] 構文エラーまたはその他の例外が発生: {e} 空のデータを作成しました。")
+            error_detail = traceback.format_exc()
+            logger.error(error_detail)
 
         # 親クラスの管理辞書を更新
         self.all_data[category].clear()
