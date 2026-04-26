@@ -178,6 +178,10 @@ def list_to_strict_minimessage(parsed_list: List[dc.MiniMessageItem]) -> str:
     output = ""
     for item in parsed_list:
         text = item["text"].replace("<", r"\<")
+
+        # テキストが空なら、このセグメントのタグ生成をスキップ
+        if not text:
+            continue
         
         # 1. 構造化辞書を正規化されたタグリスト (<bold>, <red> 等) に変換
         flat_tags = flatten_tag_data(item["tags"])
