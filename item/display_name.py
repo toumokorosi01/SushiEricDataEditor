@@ -18,10 +18,6 @@ class DisplayName(ctk.CTkFrame):
         self.update_callback = update_callback
         self.update_sidebar_callback = update_sidebar_callback
 
-        # 伝播を無効化（サイズ固定のため）
-        self.grid_propagate(False)
-        self.pack_propagate(False)
-
         self.setup_widgets()
 
     """サイドバーとヘッダーを更新する"""
