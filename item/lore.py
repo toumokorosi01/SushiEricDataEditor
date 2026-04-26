@@ -559,3 +559,141 @@ class LoreLine(ctk.CTkFrame):
             section.grid(row=0, column=i, pady=2, padx=3)
             
 
+"""LoreのLineをまとめるクラス"""
+class Lore(ctk.CTkFrame):
+    def __init__(self, master, item_data: dc.ItemDataContent, update_callback, update_sidebar_callback, **kwargs):
+        # 外側の枠線設定を引き継ぐ
+        super().__init__(
+            master, 
+            fg_color="transparent", 
+            border_color=const.line_color, 
+            border_width=1, 
+            corner_radius=0,
+            width=600,
+            height=400,
+            **kwargs
+        )
+
+        self.item_data = item_data
+        self.update_callback = update_callback
+        self.update_sidebar_callback = update_sidebar_callback
+
+        # Lineのリスト
+        self.frame_list: List[ctk.CTkFrame] = []
+
+        # 伝播を無効化（サイズ固定のため）
+        self.grid_propagate(False)
+        self.pack_propagate(False)
+
+        # item_dataは{}の可能性あり
+        # 起動時に構造化済み
+        self.lore_list = item_data.get("display", {}).get("lore", [])
+
+        self.setup_widgets()
+
+    """親の辞書を書き換えてサイドバーとヘッダーを更新する"""
+    def on_update(self):
+        # item.main.data_createで新規作成時はconst.EMPTY_ITEM_DATAを使用するので空にはならない
+        self.item_data["display"]["lore"] = self.lore_list
+
+        self.update_callback()
+        self.update_sidebar_callback()
+
+    """
+    ラインの作成
+    :parm direction: -1(上)/1(下)
+    """
+    def line_create(self, line_instance: ctk.CTkFrame, direction: int):
+        # リアルタイムで「自分がいま何番目か」をリストから検索する
+        base_idx = self.frame_list.index(line_instance)
+        insert_idx = base_idx + direction
+        insert_idx = max(0, min(insert_idx, len(self.frame_list)))
+        
+        # 空のデータを作る(まだ作っただけで入れてない)
+        new_list = [create_empty_minimessage_data()]
+        # 指定のindexに挿入
+        self.lore_list.insert(insert_idx, new_list)
+
+        new_frame = LoreLine(self.scroll_frame, new_list, self.on_update, self.line_create, self.line_delete, self.line_move)
+        self.frame_list.insert(insert_idx, new_frame)
+
+        # 再配置
+        for i, frame in enumerate(self.frame_list):
+            frame.grid(row=i, column=0, pady=2, padx=3, sticky="ew")
+
+        self.on_update()
+
+    """ラインの削除"""
+    def line_delete(self, section_instance: ctk.CTkFrame):
+        if len(self.lore_list) <= 1:
+            return
+
+        idx = self.frame_list.index(section_instance)
+
+        self.lore_list.pop(idx)
+        target_frame = self.frame_list.pop(idx)
+        target_frame.destroy()
+
+        for i, frame in enumerate(self.frame_list):
+            frame.grid(row=i, column=0, pady=2, padx=3, sticky="ew")
+
+        self.on_update()
+
+    """
+    ラインの移動
+    :parm direction: -1(上)/1(下)
+    """
+    def line_move(self, section_instance: ctk.CTkFrame, direction: int):
+        if direction == 0:
+            return
+        
+        old_idx = self.frame_list.index(section_instance)
+        new_idx = old_idx + direction
+        new_idx = max(0, min(new_idx, len(self.frame_list)))
+
+        if 0 <= new_idx < len(self.frame_list):
+            # 要素を入れ替える(データ)
+            self.lore_list[old_idx], self.lore_list[new_idx] = \
+                self.lore_list[new_idx], self.lore_list[old_idx]
+            # 要素を入れ替える(フレーム)
+            self.frame_list[old_idx], self.frame_list[new_idx] = \
+                self.frame_list[new_idx], self.frame_list[old_idx]
+            
+            # grid再設定
+            for i, frame in enumerate(self.frame_list):
+                frame.grid(row=i, column=0, pady=2, padx=3, sticky="ew")
+
+            self.on_update()
+
+    """フレームの構築"""
+    def setup_widgets(self):
+        self.grid_columnconfigure(0, weight=1)  # 0列目を横いっぱいに広げる
+        self.grid_rowconfigure(1, weight=1)
+
+        label = ctk.CTkLabel(self, text="説明文", font=const.UI_FONT)
+        label.grid(pady=3, row=0)
+
+        # スクロールエリア
+        self.scroll_frame = ctk.CTkScrollableFrame(self, fg_color="transparent", border_width=0, corner_radius=0)
+        self.scroll_frame.grid(padx=1, pady=(2, 1), row=1, sticky="nsew")
+
+        if not self.lore_list or (len(self.lore_list) == 1 and not self.lore_list[0]):
+            self.lore_list = [[create_empty_minimessage_data()]]
+
+        # frame_listを初期化（IndexErrorを防ぐため）
+        self.frame_list = [None] * len(self.lore_list)
+
+        # データを読み込んで配置
+        for i, line_data in enumerate(self.lore_list):
+            # self.lore_list[i] (つまり line_data) を渡す
+            line = LoreLine(
+                self.scroll_frame, 
+                line_data, 
+                self.on_update, 
+                self.line_create, 
+                self.line_delete, 
+                self.line_move
+            )
+            self.frame_list[i] = line
+            line.grid(row=i, column=0, pady=2, padx=3, sticky="ew")
+        
