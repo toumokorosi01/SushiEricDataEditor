@@ -320,244 +320,120 @@ DECORATIONS = {
     "難読化": "obfuscated"
 }
 
-class Lore(ctk.CTkFrame):
-    def __init__(self, master, item_data: dc.ItemDataContent, update_callback, update_sidebar_callback, **kwargs):
-        # 外側の枠線設定を引き継ぐ
-        super().__init__(
-            master, 
-            fg_color="transparent", 
-            border_color=const.line_color, 
-            border_width=1, 
-            corner_radius=0,
+"""loreのsectionのフレームの作成"""
+class LoreSection(ctk.CTkFrame):
+    def __init__(
+            self, 
+            master: ctk.CTkScrollableFrame, 
+            section_data: dc.MiniMessageItem, 
+            on_update: Callable[[], None], 
+            create_callback: Callable[[ctk.CTkFrame, int], None], 
+            delete_callback: Callable[[ctk.CTkFrame], None], 
+            move_callback: Callable[[ctk.CTkFrame, int], None], 
             **kwargs
-        )
-
-        self.is_initializing = True  # 初期化フラグを立てる
-
-        self.item_data = item_data
-        self.update_callback = update_callback
-        self.update_sidebar_callback = update_sidebar_callback
-
-        # 伝播を無効化（サイズ固定のため）
-        self.grid_propagate(False)
-        self.pack_propagate(False)
-
-        # item_dataは{}の可能性あり
-        # 起動時に構造化済み
-        self.lore_list = item_data.get("display", {}).get("lore", [])
-
+    ):
+        # master は LoreLine(self) 
+        super().__init__(master, fg_color="transparent", border_width=1, border_color=const.line_color, corner_radius=0, width=200, **kwargs)
+        
+        # このセクションが担当する1つの MiniMessageItem
+        self.section_data = section_data
+        self.on_update = on_update
+        self.create_callback = create_callback
+        self.delete_callback = delete_callback
+        self.move_callback = move_callback
+        
+        # GUIパーツの構築
         self.setup_widgets()
-        self.is_initializing = False # 初期化完了
 
-    """親の辞書を書き換えてサイドバーとヘッダーを更新する"""
-    def on_update(self):
-        # item.main.refrash_dataでall_dataが空の場合はここは呼ばれない
-        # item.main.data_createで新規作成時はconst.EMPTY_ITEM_DATAを使用するので空にはならない
-        self.item_data["display"]["lore"] = self.lore_list
-
-        if getattr(self, "is_initializing", False):
-            return
-
-        self.update_callback()
-        self.update_sidebar_callback()
-
-    """ベースのフレーム"""
     def setup_widgets(self):
-        label = ctk.CTkLabel(self, text="説明文", font=const.UI_FONT)
-        label.pack(pady=3) 
+        # 例: タグ編集用の入力欄やテキストラベルなど
+        data_edit_tool = EditMiniMessage(self.section_data, self.on_update)
 
-        # スクロールエリア
-        self.scroll_frame = ctk.CTkScrollableFrame(self, fg_color="transparent", border_width=0, corner_radius=0)
-        self.scroll_frame.pack(expand=True, fill="both", padx=(1, 1), pady=(2, 1))
-
-        # データを読み込んで配置
-        self.building_frame()
-        
-    """フレームの構築"""
-    def building_frame(self):
-        """データの新規作成"""
-        def data_create(line_idx: int, section_idx: int):
-            # 空のデータを作る(まだ作っただけで入れてない)
-            new_data = create_empty_minimessage_data()
-
-            # 指定のindexに挿入
-            lore_data = self.item_data["display"]["lore"]
-            target_line = lore_data[line_idx]
-            target_line.insert(section_idx, new_data)
-
-            target_line_frames = line_frame_list[line_idx]
-
-            # 追加したい位置以下のフレームを下にずらす
-            for i in range(len(target_line_frames) - 1, section_idx - 1, -1):
-                target_line_frames[i].grid(row=i + 1, pady=5, padx=10)
+        # タグのデータ
+        tag_data = self.section_data["tags"]
             
-            # フレームを作成、表示
-            new_frame = create_section_frame(new_data)
-            section_frame_list.insert(index, new_frame)
+        # 入力欄、×ボタン
+        frame_1 = ctk.CTkFrame(self, fg_color="transparent")
+        frame_1.grid(row=0, sticky="nsew", pady=(1, 0), padx=1)
 
-            new_frame.grid(row=index, pady=5, padx=10)
-
-            self.scroll_frame.update_idletasks()
-            self.on_update()
-
-        """データの入れ替え"""
-        def data_move(line_idx: int, old_index: int, new_index: int):
-            # インデックスが両方とも有効範囲内かチェック
-            if not (0 <= old_index < len(self.name_data) and 0 <= new_index < len(self.name_data)):
-                return
-
-            # 要素を入れ替える(データ)
-            self.name_data[old_index], self.name_data[new_index] = \
-                self.name_data[new_index], self.name_data[old_index]
-
-            # 要素を入れ替える(フレーム)
-            section_frame_list[old_index], section_frame_list[new_index] = \
-                section_frame_list[new_index], section_frame_list[old_index]
-
-            # grid再設定
-            for i, frame in enumerate(section_frame_list):
-                frame.grid(row=i, pady=5, padx=10)
-
-            self.scroll_frame.update_idletasks()
-            self.on_update()
-
-        """データの削除"""
-        def data_delete(line_idx: int, section_idx: int):
-            if len(self.name_data) > 1:
-                # データ削除
-                self.name_data.pop(index)
-                # フレームをリストから取り出す(削除)
-                target_frame = section_frame_list.pop(index)
-                # フレームを破壊
-                target_frame.destroy()
-
-                # 詰めなおし
-                for i, frame in enumerate(section_frame_list):
-                    frame.grid(row=i, pady=5, padx=10)
-
-                self.scroll_frame.update_idletasks()
-                self.on_update()
-
-        # 一旦クリア
-        for widget in self.scroll_frame.winfo_children():
-            widget.destroy()
-
-
-        # create_line_frame
-        # create_section_frame
-        # create_line_frameでつくった一列のスクロールフレームの中にcreate_section_frameを並べていく
-        # sectionなどに渡すデータは必ず参照。コピーはダメ
-
-        # section_create, delete, moveとline_create, delete, moveを作る
-
-
-        """ラインフレームを作成"""
-        def create_line_frame() -> ctk.CTkFrame:
-            parent = ctk.CTkFrame(self.scroll_frame)
-
-            inner_scroll = ctk.CTkScrollableFrame(parent, orientation="horizontal", height=150)
-            inner_scroll.pack(fill="x", padx=20, pady=20)
-
-            parent.scroll_area = inner_scroll
-
-            return parent
-        
-        new_section = create_line_frame()
-        new_section.pack(fill="x")
-        ctk.CTkButton(new_section.scroll_area, text="外から追加したボタン").pack(side="left")
-
-        """編集フレームを作成"""
-        def create_section_frame(data: dc.MiniMessageItem, line_frame: ctk.CTkFrame, line_idx: int, section_idx: int):
-
-            data_edit_tool = EditMiniMessage(data, self.on_update)
-
-            # タグのデータ
-            tag_data = data["tags"]
-
-            # 親フレーム(追加ボタンや入力欄のまとまり)
-            parent_frame = ctk.CTkFrame(line_frame, width=200)
+        # デコレーションの操作
+        frame_2 = ctk.CTkFrame(self, fg_color="transparent")
+        frame_2.grid(row=1, sticky="nsew", padx=1)
             
-            # 入力欄、×ボタン
-            frame_1 = ctk.CTkFrame(parent_frame)
-            frame_1.grid(row=0, sticky="nsew")
+        # データの移動や追加のボタン
+        frame_3 = ctk.CTkFrame(self, fg_color="transparent")
+        frame_3.grid(row=2, sticky="nsew", pady=(0, 1), padx=1)
 
-            # デコレーションの操作
-            frame_2 = ctk.CTkFrame(parent_frame)
-            frame_2.grid(row=1, sticky="nsew")
-            
-            # データの移動や追加のボタン
-            frame_3 = ctk.CTkFrame(parent_frame)
-            frame_3.grid(row=2, sticky="nsew")
+        # ============ 表示名・削除ボタン ============
+        # 入力欄の設定
+        name_var = ctk.StringVar(value=self.section_data.get("text", ""))
+        name_var.trace_add("write", lambda *_: data_edit_tool.change_text(name_var.get()))
+        # 入力欄
+        entry = ctk.CTkEntry(frame_1, textvariable=name_var, width=180, font=const.UI_FONT)
+        entry.grid(row=0, column=0, pady=5, padx=10)
 
-            # ============ 表示名・削除ボタン ============
-            # 入力欄の設定
-            name_var = ctk.StringVar(value=data.get("text", ""))
-            name_var.trace_add("write", lambda *_: data_edit_tool.change_text(name_var.get()))
-            # 入力欄
-            entry = ctk.CTkEntry(frame_1, textvariable=name_var, width=180, font=const.UI_FONT)
-            entry.grid(column=0, pady=5, padx=10)
+        # 削除ボタン
+        ctk.CTkButton(frame_1, text="✕", fg_color="red", command=lambda: self.delete_callback(self), width=28).grid(row=0, column=1, pady=5, padx=10)
 
-            # 削除ボタン
-            ctk.CTkButton(frame_1, text="✕", fg_color="red", command=lambda: data_delete(line_idx, section_idx), width=28).grid(column=1, pady=5, padx=10)
+        # ============ デコレーションと色操作 ============
+        # デコレーションのフレーム
+        deco_frame = ctk.CTkFrame(frame_2, fg_color="transparent")
+        deco_frame.grid(row=0, column=0, sticky="nsew")
 
-            # ============ デコレーションと色操作 ============
-            # デコレーションのフレーム
-            deco_frame = ctk.CTkFrame(frame_2)
-            deco_frame.grid(column=0, sticky="nsew")
+        # カラーのフレーム
+        color_frame = ctk.CTkFrame(frame_2, fg_color="transparent")
+        color_frame.grid(row=0, column=1, sticky="nsew")
 
-            # カラーのフレーム
-            color_frame = ctk.CTkFrame(frame_2)
-            color_frame.grid(column=1, sticky="nsew")
+        # デコレーション
+        for deco_idx, (display, tag) in enumerate(DECORATIONS.items()):
+            is_on = tag in tag_data["decoration"]
+            switch_var = ctk.BooleanVar(value=is_on)
 
-            # デコレーション
-            for deco_idx, (display, tag) in enumerate(DECORATIONS.items()):
-                is_on = tag in tag_data["decoration"]
-                switch_var = ctk.BooleanVar(value=is_on)
-
-                switch = ctk.CTkSwitch(
-                    deco_frame,
-                    text=display,
-                    variable=switch_var,
-                    command=lambda t=tag, v=switch_var: data_edit_tool.change_deco_tag(t, v.get())
-                )
-                switch.grid(row=deco_idx, sticky="w", padx=10)
-
-            # 影
-            shadow_frame = ctk.CTkFrame(deco_frame, fg_color="transparent")
-            shadow_frame.grid(row=0)
-        
-            # OptionMenu (値が変わった時に change_color を呼ぶ)
-            # color は OptionMenu から自動で渡される選択文字列
-            # この時点ではまだ置かない
-            shadow_option = ctk.CTkOptionMenu(
-                shadow_frame,
-                values=const.const.MiniMessageTag.COLORS + ["hexcode"],
-                command=lambda color: data_edit_tool.change_color("shadow", color)
+            switch = ctk.CTkSwitch(
+                deco_frame,
+                text=display,
+                variable=switch_var,
+                command=lambda t=tag, v=switch_var: data_edit_tool.change_deco_tag(t, v.get())
             )
+            switch.grid(row=deco_idx, sticky="w", padx=10)
+
+        # 影
+        shadow_frame = ctk.CTkFrame(color_frame, fg_color="transparent")
+        shadow_frame.grid(row=0)
         
-            # スイッチ (ON/OFF時に change_shadow を呼ぶ)
-            # NoneならFalse
-            is_shadow = bool(tag_data.get("shadow"))
-            shadow_switch_var = ctk.BooleanVar(value=is_shadow)
+        # OptionMenu (値が変わった時に change_color を呼ぶ)
+        # color は OptionMenu から自動で渡される選択文字列
+        # この時点ではまだ置かない
+        shadow_option = ctk.CTkOptionMenu(
+            shadow_frame,
+            values=dc.MiniMessageTag.COLORS + ["hexcode"],
+            width=100,
+            command=lambda color: data_edit_tool.change_color("shadow", color)
+        )
+    
+        # スイッチ (ON/OFF時に change_shadow を呼ぶ)
+        # NoneならFalse
+        is_shadow = bool(tag_data.get("shadow"))
+        shadow_switch_var = ctk.BooleanVar(value=is_shadow)
             
-            shadow_switch = ctk.CTkSwitch(
-                shadow_frame, 
-                text="影", 
-                variable=shadow_switch_var,
-                command=lambda: data_edit_tool.change_shadow(shadow_switch_var.get(), shadow_option)
-            )
-            shadow_switch.pack(pady=(3, 0))
+        shadow_switch = ctk.CTkSwitch(
+            shadow_frame, 
+            text="影", 
+            variable=shadow_switch_var,
+            command=lambda: data_edit_tool.change_shadow(shadow_switch_var.get(), shadow_option)
+        )
+        shadow_switch.pack(pady=(3, 0))
 
-            # データが入っていれば表示
-            if is_shadow:
-                shadow_option.pack(pady=(3, 0))
-                shadow_option.set(tag_data.get("shadow"))
+        # データが入っていれば表示
+        if is_shadow:
+            shadow_option.pack(pady=(3, 0))
+            shadow_option.set(tag_data.get("shadow"))
 
-            # ============ 作成・移動 ============
-            ctk.CTkButton(frame_3, text="前に追加", fg_color="green", command=lambda: data_create(line_idx, section_idx), width=90).pack(side="left", expand=True, padx=2, pady=3)
-            ctk.CTkButton(frame_3, text="後ろに追加", fg_color="green", command=lambda: data_create(line_idx, section_idx + 1), width=90).pack(side="left", expand=True, padx=2, pady=3)
-            ctk.CTkButton(frame_3, text="◀", command=lambda: data_move(line_idx, section_idx, section_idx - 1), width=90).pack(side="left", expand=True, padx=2, pady=3)
-            ctk.CTkButton(frame_3, text="▶", command=lambda: data_move(line_idx, section_idx, section_idx + 1), width=90).pack(side="left", expand=True, padx=2, pady=3)
+        # ============ 作成・移動 ============
+        ctk.CTkButton(frame_3, text="◀", command=lambda: self.move_callback(self, -1), width=35).pack(side="left", expand=True, padx=2, pady=3)
+        ctk.CTkButton(frame_3, text="▶", command=lambda: self.move_callback(self, 1), width=35).pack(side="left", expand=True, padx=2, pady=3)
+        ctk.CTkButton(frame_3, text="前に追加", fg_color="green", command=lambda: self.create_callback(self, -1), width=80).pack(side="left", expand=True, padx=2, pady=3)
+        ctk.CTkButton(frame_3, text="後ろに追加", fg_color="green", command=lambda: self.create_callback(self, 1), width=80).pack(side="left", expand=True, padx=2, pady=3)
 
             return parent_frame
 
