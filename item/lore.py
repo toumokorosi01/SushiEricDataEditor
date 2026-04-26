@@ -288,7 +288,7 @@ class EditMiniMessage:
     :param color: 変更後の色。'hexcode'かconst.const.MiniMessageTag.ColorNameで指定。
     :param index: 色がリストで保存される形式の場合、リストのインデックスを指定。デフォルト値は0。
     """
-    def change_color(self, mode: const.MiniMessageTag.ColorTagType, color: str, index: int = 0):
+    def change_color(self, mode: dc.MiniMessageTag.ColorTagType, color: str, index: int = 0):
         is_hex = color == "hexcode"
         tag_data = self.data["tags"]
         color_data = tag_data["color"]
