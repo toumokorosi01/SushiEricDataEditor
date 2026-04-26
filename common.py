@@ -1,6 +1,7 @@
 import os, re
 import const
 from typing import get_args
+import data_content as dc
 
 """OSに応じたデータ保存フォルダのベースパスを返す"""
 def get_base_data_folder():
@@ -37,7 +38,7 @@ def is_color(name: str) -> bool:
     if not name or not isinstance(name, str):
         return False
     # Literal[ColorName] の値を取得して判定
-    valid_names = get_args(const.MiniMessageTag.ColorName)
+    valid_names = get_args(dc.MiniMessageTag.ColorName)
     if name.lower() in valid_names:
         return True
     # HexCode 判定
